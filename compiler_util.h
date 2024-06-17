@@ -14,6 +14,12 @@ extern char* yyInputFileName;
 extern bool compileError;
 extern FILE* yyin;
 
+extern bool HAS_ERROR;
+extern int scope, addr;
+extern struct table* cur_table;
+extern char funcSig[100];
+extern char return_type;
+
 #define ERROR_PREFIX "%s:%d:%d: error: "
 #define ERROR_TEXT_BUFFER_LEN 128
 #define ERROR_TOKEN_BUFFER_LEN 64

@@ -1,8 +1,8 @@
 #!/bin/bash
-input_dir="/home/share/hw3/input"
-result_dir="/home/$USER/2024-Spring-NCKU-CompilerHW3/result"
-answer_dir="/home/share/hw3/answer"
-compiler="/home/$USER/2024-Spring-NCKU-CompilerHW3/build/out/compiler"
+input_dir="/mnt/c/Users/ncc/Desktop/Compiler-HW3/input"
+result_dir="/mnt/c/Users/ncc/Desktop/Compiler-HW3/result"
+answer_dir="/mnt/c/Users/ncc/Desktop/Compiler-HW3/answer"
+compiler="/mnt/c/Users/ncc/Desktop/Compiler-HW3/build/out/compiler"
 
 RED="\033[0;31m"
 YELLOW="\033[0;33m"
