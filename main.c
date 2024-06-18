@@ -51,6 +51,12 @@ void code(const char* format, ...) {
     va_end(args);
 }
 
+char* getInstruction(const InstructionMapping mapping[], int size, char* input) {
+    for (int i = 0; i < size; i++)
+        if (strcmp(input, mapping[i].returnVal) == 0)
+            return strdup(mapping[i].inst);
+}
+
 char* catDoller(const char* s1, const char* s2) {
     char* temp = (char*)calloc(strlen(s1) + strlen(s2) + 2, sizeof(char));
     strcpy(temp, s1);

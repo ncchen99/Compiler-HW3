@@ -164,7 +164,7 @@ AssignmentStmt
         // } OK: int a = (float)(5.5)
         printf("%s\n", $<s_var>2);
 
-        InstructionMapping operations[] = {
+        const InstructionMapping operations[] = {
             {"ADD_ASSIGN", "%cadd\n"},
             {"SUB_ASSIGN", "%csub\n"},
             {"MUL_ASSIGN", "%cmul\n"},
@@ -176,25 +176,20 @@ AssignmentStmt
             {"BOR_ASSIGN", "%cor\n"},
             {"BXO_ASSIGN", "%cxor\n"}
         };
-
-        for (int i = 0; i < sizeof(operations) / sizeof(operations[0]); i++) {
-            if (strcmp($<s_var>2, operations[i].returnVal) == 0) {
-                code(operations[i].inst, $<s_var>1[0]);
-            }
+        
+        if(strcmp($<s_var>2, "EQL_ASSIGN") != 0){
+            code(getInstruction(operations, 10, $<s_var>2), $<s_var>1[0]);
         }
+        
 
-        InstructionMapping type2store[] = {
+        const InstructionMapping type2store[] = {
             {"string", "astore %d\n"},
             {"bool", "istore %d\n"},
             {"int", "istore %d\n"},
             {"float", "fstore %d\n"}
         };
 
-        for (int i = 0; i < sizeof(type2store) / sizeof(type2store[0]); i++) {
-            if (strcmp($<s_var>1, type2store[i].returnVal) == 0) {
-                code(type2store[i].inst, ident_addr);
-            }
-        }
+        code(getInstruction(type2store, 4, $<s_var>1), ident_addr);
     }
 ;
 
@@ -553,16 +548,15 @@ Variable
         $$ = getSymbolType($<s_var>1, false); 
         Symbol* cur = findSymbol($<s_var>1, false);
         ident_addr = cur -> addr;
-        if(strcmp(cur -> type, "int") == 0 || strcmp(cur -> type, "bool") == 0){
-            code("iload %d\n", cur -> addr);
-        }
-        else if(strcmp(cur -> type, "float") == 0){
-            code("fload %d\n", cur -> addr);
-        }
-        else if(strcmp(cur -> type, "string") == 0){
-            code("aload %d\n", cur -> addr);
-        }
-    }
+
+        const InstructionMapping type2load[] = {
+            {"string", "aload %d\n"},
+            {"bool", "iload %d\n"},
+            {"int", "iload %d\n"},
+            {"float", "fload %d\n"}
+        };
+        code(getInstruction(type2load, 4, cur -> type), cur -> addr);
+    }   
     | IDENT '(' ElementList ')' 
     { 
         $$ = getSymbolType($<s_var>1, true);

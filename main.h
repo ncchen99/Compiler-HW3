@@ -20,9 +20,15 @@ int yylex_destroy();
 #define VAR_FLAG_POINTER 0b00000010
 #define G_INDENT_CNT 0
 
+typedef struct {
+    const char* returnVal;
+    const char* inst;
+} InstructionMapping;
+
 /*#define code(format, ...) \
     fprintf(yyout, "%*s" format, scopeLevel << 2, "", ##__VA_ARGS__)*/
 void code(const char* format, ...);
+char* getInstruction(const InstructionMapping mapping[], int size, char* input);
 char* catDoller(const char* s1, const char* s2);
 
 void pushScope();
@@ -60,10 +66,5 @@ char* typeToString(Type type);
 // char* lookup_symbol(char* name, bool is_function);
 // void dump_symbol();
 // void build_func_para(char* para);
-
-typedef struct {
-    const char* returnVal;
-    const char* inst;
-} InstructionMapping;
 
 #endif
