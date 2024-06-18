@@ -19,6 +19,18 @@ typedef enum _type {
     FUNCTION_TYPE,
 } Type;
 
+typedef struct {
+    char* name;
+    char* type;
+    char* func_sig;
+    int addr;
+} GeneralValue;
+
+typedef struct {
+    const char* returnVal;
+    const char* inst;
+} InstructionMapping;
+
 //////////////// Symbol Table ////////////////
 typedef struct symbol {
     char* name;
@@ -28,6 +40,16 @@ typedef struct symbol {
     int lineno;
     int index;
 } Symbol;
+
+typedef struct _object {
+    // Type type2;
+    char* type;
+    char* name;
+    char* value;
+    char* func_sig;
+    int addr;
+    void* array;
+} Object;
 
 typedef struct table {
     struct symbol symbols[101];

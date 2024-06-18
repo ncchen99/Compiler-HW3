@@ -57,16 +57,43 @@ char* getInstruction(const InstructionMapping mapping[], int size, char* input) 
             return strdup(mapping[i].inst);
 }
 
+Object createObject(char* type, char* name, char* value, int addr, char* func_sig) {
+    Object obj;
+    obj.type = strdup(type);
+    obj.name = strdup(name);
+    obj.value = strdup(value);
+    obj.addr = addr;
+    obj.func_sig = strdup(func_sig);
+    return obj;
+}
+
+char* convertAnyDataToString(void* value, Type type) {
+    char* result = (char*)malloc(20 * sizeof(char));
+    switch (type) {
+        case INT_TYPE:
+            sprintf(result, "%d", *((int*)value));
+            break;
+        case FLOAT_TYPE:
+            sprintf(result, "%f", *((float*)value));
+            break;
+        case BOOL_TYPE:
+            sprintf(result, "%s", *((int*)value) ? "true" : "false");
+            break;
+        default:
+            fprintf(stderr, "未知类型\n");
+            free(result);
+            return NULL;
+    }
+
+    return strdup(result);
+}
+
 char* catDoller(const char* s1, const char* s2) {
     char* temp = (char*)calloc(strlen(s1) + strlen(s2) + 2, sizeof(char));
     strcpy(temp, s1);
     strcat(temp, " ");
     strcat(temp, s2);
     return temp;
-}
-
-char* typeToString(Type type) {
-    return strdup(SymbolTypeName[type]);
 }
 
 void pushScope() {
@@ -108,6 +135,9 @@ Type getVarTypeByStr(char* type) {
         }
     }
     return UNDEFINED_TYPE;
+}
+char* typeToString(Type type) {
+    return strdup(SymbolTypeName[type]);
 }
 
 void initJNISignature(char* defaultSig) {

@@ -37,13 +37,13 @@ fnumber ({digit}*\.{digit}+)
 <CMT_CON>"*/"       { BEGIN(INITIAL); }
 "//".*              {;}
 
-\"                  { BEGIN(DSTR_CON); yylval.s_var = ""; }
+\"                  { BEGIN(DSTR_CON); yylval.s_val = ""; }
 <DSTR_CON>\"        { BEGIN(INITIAL); return STR_LIT; }
-<DSTR_CON>(\\\"|[^\"])* { yylval.s_var = strdup(yytext); }
+<DSTR_CON>(\\\"|[^\"])* { yylval.s_val = strdup(yytext); }
 
-'                   { BEGIN(STR_CON); yylval.s_var = ""; }
+'                   { BEGIN(STR_CON); yylval.s_val = ""; }
 <STR_CON>'          { BEGIN(INITIAL); return STR_LIT; }
-<STR_CON>(\\'|[^'\n])* { yylval.s_var = strdup(yytext); }
+<STR_CON>(\\'|[^'\n])* { yylval.s_val = strdup(yytext); }
 
 ">>"        { Return(SHR); }
 "<<"        { Return(SHL); }
@@ -115,11 +115,11 @@ fnumber ({digit}*\.{digit}+)
 "endl"      { Return(ENDL); }
 
 
-"true"      { yylval.b_var = true; Return(BOOL_LIT); }
-"false"     { yylval.b_var = false; Return(BOOL_LIT); }
-{inumber}   { yylval.i_var = atoi(yytext); Return(INT_LIT); }
-{fnumber}   { yylval.f_var = atof(yytext); Return(FLOAT_LIT); }
-{variable}  { yylval.s_var = strdup(yytext); Return(IDENT); }
+"true"      { yylval.b_val = true; Return(BOOL_LIT); }
+"false"     { yylval.b_val = false; Return(BOOL_LIT); }
+{inumber}   { yylval.i_val = atoi(yytext); Return(INT_LIT); }
+{fnumber}   { yylval.f_val = atof(yytext); Return(FLOAT_LIT); }
+{variable}  { yylval.s_val = strdup(yytext); Return(IDENT); }
 
 [ \t]+      { yycolumn += yyleng; }
 \r?\n       { yycolumn = 0; }

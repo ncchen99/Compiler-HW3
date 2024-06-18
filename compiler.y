@@ -7,18 +7,30 @@
     int yydebug = 1;
     int array_element_count = 0;
     int is_main = 0;
-    int ident_addr = 0;
+
+    const InstructionMapping type2store[] = {
+        {"string", "astore %d\n"},
+        {"bool", "istore %d\n"},
+        {"int", "istore %d\n"},
+        {"float", "fstore %d\n"}
+    };
+    const InstructionMapping type2load[] = {
+        {"string", "aload %d\n"},
+        {"bool", "iload %d\n"},
+        {"int", "iload %d\n"},
+        {"float", "fload %d\n"}
+    };
 %}
 
 /* Variable or self-defined structure */
 %union {
     Type var_type;
 
-    bool b_var;
-    int i_var;
-    float f_var;
-    char *s_var;
-
+    bool b_val;
+    int i_val;
+    float f_val;
+    char *s_val;
+    Object object_val;
     // Object object_val;
 }
 
@@ -30,14 +42,16 @@
 
 /* Token with return, which need to sepcify type */
 %token <var_type> VARIABLE_T
-%token <i_var> INT_LIT
-%token <f_var> FLOAT_LIT
-%token <s_var> STR_LIT IDENT 
-%token <b_var> BOOL_LIT
+%token <i_val> INT_LIT
+%token <f_val> FLOAT_LIT
+%token <s_val> STR_LIT IDENT 
+%token <b_val> BOOL_LIT
 
 /* Nonterminal with return, which need to sepcify type */
-%type <s_var> Literal cmp_op add_op mul_op unary_op assign_op bit_op bit_op2
-%type <s_var> Expression LogicalORExpr LogicalANDExpr ComparisonExpr AdditionExpr MultiplicationExpr UnaryExpr BitOperationExpr PrimaryExpr Operand Variable PrintableList ConversionExpr Declarator DeclaratorList DeclarationStmt
+%type <object_val> Literal 
+%type <object_val> Expression LogicalORExpr LogicalANDExpr ComparisonExpr AdditionExpr MultiplicationExpr UnaryExpr BitOperationExpr PrimaryExpr Operand Variable  ConversionExpr Declarator DeclaratorList DeclarationStmt
+%type <s_val> cmp_op add_op mul_op unary_op assign_op bit_op
+%type <s_val> PrintableList Printable
 
 %left ADD SUB
 %left MUL DIV REM
@@ -66,9 +80,9 @@ GlobalStatement
 FunctionDeclStmt
     : VARIABLE_T IDENT 
         {
-            printf("func: %s\n", $<s_var>2);
+            printf("func: %s\n", $<s_val>2);
 
-            if(strcmp( $<s_var>2, "main")==0){
+            if(strcmp( $<s_val>2, "main")==0){
                 initJNISignature("main([Ljava/lang/String;)V");
                 code(".method public static main([Ljava/lang/String;)V\n");
                 code(".limit stack 100\n");
@@ -76,10 +90,10 @@ FunctionDeclStmt
                 is_main = 1;
             } else {
                 initJNISignature(NULL);
-                code(".method public static %s", $<s_var>2);
+                code(".method public static %s", $<s_val>2);
                 is_main = 0;
             }
-            createSymbol($<var_type>1, $<s_var>2, VAR_FLAG_DEFAULT, true, false, false);
+            createSymbol($<var_type>1, $<s_val>2, VAR_FLAG_DEFAULT, true, false, false);
             pushScope();
         } '(' ParameterList ')'
         {
@@ -104,14 +118,14 @@ ParameterList
 Parameter
     : VARIABLE_T IDENT 
     { 
-        createSymbol($<var_type>1, $<s_var>2, VAR_FLAG_DEFAULT, false, true, false);
+        createSymbol($<var_type>1, $<s_val>2, VAR_FLAG_DEFAULT, false, true, false);
         if(is_main == 0){
             buildJNISignature($<var_type>1, false);
         }
     }
     | VARIABLE_T IDENT '[' ']' 
     { 
-        createSymbol($<var_type>1, $<s_var>2, VAR_FLAG_DEFAULT, false, true, true);
+        createSymbol($<var_type>1, $<s_val>2, VAR_FLAG_DEFAULT, false, true, true);
         if(is_main == 0){
             buildJNISignature($<var_type>1, true); 
         }
@@ -159,10 +173,10 @@ SimpleStmt
 AssignmentStmt
     : Expression assign_op Expression 
     {
-        // if(strcmp($<s_var>1, $<s_var>3) != 0 ) {
-        //     printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_var>2, $<s_var>1, $<s_var>3);
+        // if(strcmp($<s_val>1, $<s_val>3) != 0 ) {
+        //     printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_val>2, $<s_val>1, $<s_val>3);
         // } OK: int a = (float)(5.5)
-        printf("%s\n", $<s_var>2);
+        printf("%s\n", $<s_val>2);
 
         const InstructionMapping operations[] = {
             {"ADD_ASSIGN", "%cadd\n"},
@@ -177,19 +191,11 @@ AssignmentStmt
             {"BXO_ASSIGN", "%cxor\n"}
         };
         
-        if(strcmp($<s_var>2, "EQL_ASSIGN") != 0){
-            code(getInstruction(operations, 10, $<s_var>2), $<s_var>1[0]);
+        if(strcmp($<s_val>2, "EQL_ASSIGN") != 0){
+            code(getInstruction(operations, 10, $<s_val>2), $<s_val>1[0]);
         }
-        
 
-        const InstructionMapping type2store[] = {
-            {"string", "astore %d\n"},
-            {"bool", "istore %d\n"},
-            {"int", "istore %d\n"},
-            {"float", "fstore %d\n"}
-        };
-
-        code(getInstruction(type2store, 4, $<s_var>1), ident_addr);
+        code(getInstruction(type2store, 4, $<s_val>1), $<object_val>1.addr);
     }
 ;
 
@@ -217,12 +223,12 @@ IncDecStmt
     : Expression INC_ASSIGN    
     {
         printf("INC_ASSIGN\n");
-        code("ldc 1\n%cadd\nistore %d\n", $<s_var>1[0], ident_addr);
+        code("ldc 1\n%cadd\nistore %d\n", $<object_val>1.type[0], $<object_val>1.addr);
     }
     | Expression DEC_ASSIGN    
     {
         printf("DEC_ASSIGN\n");
-        code("ldc 1\n%csub\nistore %d\n", $<s_var>1[0], ident_addr);
+        code("ldc 1\n%csub\nistore %d\n",  $<object_val>1.type[0], $<object_val>1.addr);
     }
 ;
 
@@ -239,28 +245,37 @@ DeclaratorList
 Declarator
     : IDENT 
     {
-        createSymbol(0, $<s_var>1, VAR_FLAG_DEFAULT, false, false, false);
+        Symbol* new = createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, false);
+        InstructionMapping type2const[] = {
+            {"string", "ldc \"\"\n"},
+            {"bool", "ldc 0\n"},
+            {"int", "ldc 0\n"},
+            {"float", "ldc 0.00000\n"}
+        };
+        code(getInstruction(type2const, 4, typeToString(getVarType())));
+        code(getInstruction(type2store, 4, typeToString(getVarType())), new -> addr);
     }
 	| IDENT VAL_ASSIGN Expression 
     {
         if(getVarType() == AUTO_TYPE){
-            setVarType(getVarTypeByStr($<s_var>3));
+            setVarType(getVarTypeByStr($<s_val>3));
         }
-        createSymbol(0, $<s_var>1, VAR_FLAG_DEFAULT, false, false,false);
+        Symbol* new = createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false,false);
+        code(getInstruction(type2store, 4, typeToString(getVarType())), new -> addr);
     }
 	| IDENT '[' Expression ']' 
     {
-		createSymbol(0, $<s_var>1, VAR_FLAG_DEFAULT, false, false, true);
+		createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, true);
 	}
 	| IDENT '[' Expression ']' '[' Expression ']' 
     {
 		// printf("create array: %d\n", 0); 
-		createSymbol(0, $<s_var>1, VAR_FLAG_DEFAULT, false, false, true);
+		createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, true);
 	}
 	| IDENT '[' Expression ']' VAL_ASSIGN { array_element_count = 0; } '{' ElementList '}' 
     {
 		printf("create array: %d\n", array_element_count);
-		createSymbol(0, $<s_var>1, VAR_FLAG_DEFAULT, false, false, true);
+		createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, true);
 	}
 ;
 
@@ -285,18 +300,18 @@ Block
 CoutStmt
 	: COUT SHL PrintableList 
     { 
-        printf("cout %s\n", $<s_var>3);
+        printf("cout %s\n", $<s_val>3);
     }
 ;
 
 PrintableList
     : Printable 
     {
-        $$ = $<s_var>1;
+        $$ = $<s_val>1;
     }
     | PrintableList SHL Printable
     {
-        $$ = catDoller($<s_var>1, $<s_var>3);
+        $$ = catDoller($<s_val>1, $<s_val>3);
     }
 ;
 
@@ -305,11 +320,15 @@ Printable
     {
         code("getstatic java/lang/System/out Ljava/io/PrintStream;\n");
         code("swap\n");
-        if(strcmp($<s_var>1, "bool")==0 || strcmp($<s_var>1, "string")==0){
-            code("invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V\n");
-        } else {
-            code("invokevirtual java/io/PrintStream/println(%c)V\n", toupper($<s_var>1[0]));
-        }
+        InstructionMapping type2print[] = {
+            {"string", "invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V\n"},
+            {"bool", "invokevirtual java/io/PrintStream/print(Z)V\n"},
+            {"int", "invokevirtual java/io/PrintStream/print(I)V\n"},
+            {"float", "invokevirtual java/io/PrintStream/print(F)V\n"}
+        };
+
+        code(getInstruction(type2print, 4, $<object_val>1.type));
+        $$ = $<object_val>1.type;
     }
 ;
 
@@ -326,8 +345,8 @@ WHILEstmt
 Condition
     : Expression 
     {
-        if(strcmp($<s_var>1, "bool") != 0){
-            printf("error:%d: non-bool (type %s) used as for condition\n", yylineno + 1, $<s_var>1);
+        if(strcmp($<s_val>1, "bool") != 0){
+            printf("error:%d: non-bool (type %s) used as for condition\n", yylineno + 1, $<s_val>1);
         }
     }
 ;
@@ -341,7 +360,7 @@ ForClause
     : InitStmt ';' Condition ';' PostStmt
     | DeclarationStmt ':' Expression 
     {
-        updateSymbolType(NULL, getVarTypeByStr($<s_var>3));
+        updateSymbolType(NULL, getVarTypeByStr($<s_val>3));
     }
     
 ;
@@ -390,19 +409,19 @@ Expression
 LogicalORExpr
     : LogicalORExpr LOR LogicalANDExpr
     {
-        if((strcmp($<s_var>1, "int32") == 0)||(strcmp($<s_var>3, "int32") == 0)){
+        if((strcmp($<object_val>1.type, "int") == 0)||(strcmp($<object_val>3.type, "int") == 0)){
             printf("error:%d: invalid operation: (operator LOR not defined on int32)\n", yylineno);
         }
-        $$ = "bool";
+        $$ = createObject("bool", "LOR", "0", -1, "");
         printf("LOR\n");
     }
     | LogicalANDExpr LOR LogicalANDExpr
     {
-        if((strcmp($<s_var>1, "int32") == 0)||(strcmp($<s_var>3, "int32") == 0)){
+        if((strcmp($<object_val>1.type, "int") == 0)||(strcmp($<object_val>3.type, "int") == 0)){
             printf("error:%d: invalid operation: (operator LOR not defined on int32)\n", yylineno);
         }
-        $$ = "bool";
-    printf("LOR\n");
+        $$ = createObject("bool", "LOR", "0", -1, "");
+        printf("LOR\n");
     }
     | LogicalANDExpr {$$ = $1;}
 ;
@@ -410,18 +429,18 @@ LogicalORExpr
 LogicalANDExpr
     : LogicalANDExpr LAN ComparisonExpr
     {
-        if((strcmp($<s_var>1, "int32") == 0)||(strcmp($<s_var>3, "int32") == 0)){
+        if((strcmp($<object_val>1.type, "int") == 0)||(strcmp($<object_val>3.type, "int") == 0)){
             printf("error:%d: invalid operation: (operator LAND not defined on int32)\n", yylineno);
         }
-        $$ = "bool"; 
+        $$ = createObject("bool", "LAN", "0", -1, "");
         printf("LAN\n");
     }
     | ComparisonExpr LAN ComparisonExpr
     {
-        if((strcmp($<s_var>1, "int32") == 0)||(strcmp($<s_var>3, "int32") == 0)){
+        if((strcmp($<object_val>1.type, "int") == 0)||(strcmp($<object_val>3.type, "int") == 0)){
             printf("error:%d: invalid operation: (operator LAND not defined on int32)\n", yylineno);
         }
-        $$ = "bool"; 
+        $$ = createObject("bool", "LAN", "0", -1, "");
         printf("LAN\n");
     }
     | ComparisonExpr {$$ = $1;}
@@ -430,11 +449,11 @@ LogicalANDExpr
 ComparisonExpr
     : AdditionExpr cmp_op AdditionExpr
     {
-        if(strcmp($<s_var>1, $<s_var>3) != 0){
-            printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_var>2, $<s_var>1, $<s_var>3);
+        if(strcmp($<object_val>1.type, $<object_val>3.type) != 0){
+            printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_val>2, $<s_val>1, $<s_val>3);
         }
-        $$ = "bool";
-        printf("%s\n", $<s_var>2);
+        $$ = createObject("bool", $<s_val>2, "0", -1, "");
+        printf("%s\n", $<s_val>2);
     }
     | AdditionExpr {$$ = $1;}
 ;
@@ -442,15 +461,18 @@ ComparisonExpr
 AdditionExpr
     : MultiplicationExpr add_op MultiplicationExpr
     {
-        // if(strcmp($<s_var>1, $<s_var>3) != 0){
-        //     printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_var>2, $<s_var>1, $<s_var>3);
-        // } TODO: auto cast
+        if(strcmp($<object_val>1.type, $<object_val>3.type) != 0 ){
+            printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_val>2, $<s_val>1, $<s_val>3);
+        } // TODO: auto cast
         $$ = $1;
-        printf("%s\n", $<s_var>2);
+        printf("%s\n", $<s_val>2);
+        code("%c%s\n", tolower($<s_val>1[0]), $<s_val>2);
     }
     | AdditionExpr add_op MultiplicationExpr
-    {$$ = $1;
-    printf("%s\n", $<s_var>2);
+    {
+        $$ = $1;
+        printf("%s\n", $<s_val>2);
+        code("%c%s\n", tolower($<s_val>1[0]), $<s_val>2);
     }
     | MultiplicationExpr {$$ = $1;}
 ;
@@ -459,36 +481,59 @@ MultiplicationExpr
     : MultiplicationExpr mul_op BitOperationExpr
     {
         $$ = $1;
-        printf("%s\n", $<s_var>2);
+        printf("%s\n", $<s_val>2);
+        code("%c%s\n", tolower($<s_val>1[0]), $<s_val>2);
     }
     | BitOperationExpr mul_op BitOperationExpr
     {
-        if((strcmp($<s_var>2, "REM") == 0)&&(strcmp($<s_var>3, "float32") == 0)){
+        if((strcmp($<s_val>2, "REM") == 0)&&(strcmp($<object_val>3.type, "float") == 0)){
             printf("error:%d: invalid operation: (operator REM not defined on float32)\n", yylineno);
         }
         $$ = $1;
-        printf("%s\n", $<s_var>2);
+        printf("%s\n", $<s_val>2);
+        code("%c%s\n", tolower($<s_val>1[0]), $<s_val>2);
     }
     | BitOperationExpr {$$ = $1;}
 ;
 
 BitOperationExpr
-    : BitOperationExpr bit_op2 BitOperationExpr { {
-         if(strcmp($<s_var>1, $<s_var>3) != 0){
-            printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_var>2, $<s_var>1, $<s_var>3);
+    : BitOperationExpr bit_op BitOperationExpr { 
+        if(strcmp($<object_val>1.type, "int") != 0 || strcmp($<object_val>3.type, "int") != 0){
+            printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_val>2, $<object_val>1.type, $<object_val>3.type);
         }
         $$ = $1;
-        printf("%s\n", $<s_var>2);
-        }
+        printf("%s\n", $<s_val>2);
+        code("%c%s\n", tolower($<object_val>1.type[0]), $<s_val>2);
     }
-    | bit_op UnaryExpr { $$ = $<s_var>2; printf("%s\n", $<s_var>1);}
-    | UnaryExpr {$$ = $<s_var>1;}
+    | UnaryExpr {$$ = $1;}
 ;
 
 
 
 UnaryExpr
-    : unary_op UnaryExpr { $$ = $2; printf("%s\n", $<s_var>1);}
+    : unary_op UnaryExpr 
+    { 
+        $$ = $2;
+        printf("%s\n", $<s_val>1);
+        if(strcmp($<s_val>1, "NOT")==0){
+            code("iconst_1\n");
+            if(strcmp($<s_val>2, "true")==0){
+                code("iconst_1\n");
+            }
+            else if(strcmp($<s_val>2, "false")==0){
+                code("iconst_0\n");
+            }
+            code("ixor\n");
+            $$ = createObject("bool", "NOT", "0", -1, "");
+        } else if(strcmp($<s_val>1, "BNT")==0){
+            code("iconst_m1\n");
+            code("ixor\n");
+            $$ = createObject("int", "BNT", "0", -1, "");
+        } else if(strcmp($<s_val>1, "NEG") == 0){
+            code("%cneg\n", $<object_val>2.type[0]);
+            $$ = createObject($<object_val>2.type, "NEG", "0", -1, "");
+        }
+    }
     | PrimaryExpr { $$ = $1; }
 ;
 
@@ -503,107 +548,110 @@ cmp_op
 ;
 
 add_op 
-    : ADD { $$ = "ADD"; }
-    | SUB { $$ = "SUB"; }
+    : ADD { $$ = "add"; }
+    | SUB { $$ = "sub"; }
 ;
 
 mul_op 
-    : MUL { $$ = "MUL"; }
-    | DIV { $$ = "DIV"; }
-    | REM { $$ = "REM"; }
+    : MUL { $$ = "mul"; }
+    | DIV { $$ = "div"; }
+    | REM { $$ = "rem"; }
 ;
 
 unary_op 
     : ADD { $$ = "POS"; }
     | SUB { $$ = "NEG"; }
     | NOT { $$ = "NOT"; }
-;
-
-bit_op2
-    : BAN { $$ = "BAN"; }
-    | BOR { $$ = "BOR"; }
-    /* | SHL { $$ = "SHL"; } */
-    | SHR { $$ = "SHR"; }
-    | BXO { $$ = "BXO"; }
+    | BNT { $$ = "BNT"; }
 ;
 
 bit_op
-    : BNT { $$ = "BNT"; }
+    : BAN { $$ = "and"; }
+    | BOR { $$ = "or"; }
+    /* | SHL { $$ = "SHL"; } */
+    | SHR { $$ = "ushr"; }
+    | BXO { $$ = "xor"; }
 ;
 
+
 PrimaryExpr 
-    : Operand { $$ = $<s_var>1; }
-    | ConversionExpr { $$ = $<s_var>1; }
+    : Operand { $$ = $<object_val>1; }
+    | ConversionExpr { $$ = $<object_val>1; }
 ;
 
 Operand 
-    : Literal { $$ = $<s_var>1; }
-    | Variable { $$ = $<s_var>1; }
-    | '(' Expression ')' { $$ = $<s_var>2; }
+    : Literal { $$ = $<object_val>1; }
+    | Variable { $$ = $<object_val>1; }
+    | '(' Expression ')' { $$ = $<object_val>2; }
 ;
 
 Variable
     : IDENT 
-    { 
-        $$ = getSymbolType($<s_var>1, false); 
-        Symbol* cur = findSymbol($<s_var>1, false);
-        ident_addr = cur -> addr;
-
-        const InstructionMapping type2load[] = {
-            {"string", "aload %d\n"},
-            {"bool", "iload %d\n"},
-            {"int", "iload %d\n"},
-            {"float", "fload %d\n"}
-        };
+    {         
+        Symbol* cur = findSymbol($<s_val>1, false);
+        $$ = createObject(cur -> type, cur -> name, "0", cur -> addr,"");
+        
         code(getInstruction(type2load, 4, cur -> type), cur -> addr);
     }   
     | IDENT '(' ElementList ')' 
     { 
-        $$ = getSymbolType($<s_var>1, true);
-        Symbol* cur = findSymbol($<s_var>1, true);
-        ident_addr = cur -> addr;
+        Symbol* cur = findSymbol($<s_val>1, true);
+        $$ =  createObject(cur -> type, cur -> name, "0", cur -> addr,"");
         code("invokestatic Main/%s%s\n", cur -> name, cur -> func_sig);
     } 
-    | IDENT '[' Expression ']' { $$ = getSymbolType($<s_var>1, false); }
-    | IDENT '[' Expression ']' '[' Expression ']' { $$ = getSymbolType($<s_var>1, false); }
+    | IDENT '[' Expression ']' 
+    {
+        Symbol* cur = findSymbol($<s_val>1, false);
+        $$ = createObject(cur -> type, cur -> name, "0", cur -> addr,"");
+    }
+    | IDENT '[' Expression ']' '[' Expression ']' 
+    {
+        Symbol* cur = findSymbol($<s_val>1, false);
+        $$ = createObject(cur -> type, cur -> name, "0", cur -> addr,""); 
+    }
 ;
 
 ConversionExpr 
     : '(' VARIABLE_T ')' Operand 
     { 
         printf("Cast to %s\n", typeToString($<var_type>2)); 
-        $$ = typeToString($<var_type>2);
+        // $$ = typeToString($<var_type>2);
+        if ($<var_type>2 != getVarTypeByStr($<object_val>4.type)) {
+            code("%c2%c", tolower($<object_val>4.type[0]), tolower(typeToString($<var_type>2)[0]));
+        }
+        $$ = $<object_val>4;
+        $$.type = typeToString($<var_type>2);
     }
 ;
 
 Literal
     : INT_LIT
         {
-            $$ = "int"; 
-            printf("INT_LIT %d\n", $<i_var>1); 
-            code("ldc %d\n", $<i_var>1);
+            $$ = createObject("int", "LIT", convertAnyDataToString(&($<i_val>1), INT_TYPE), -1, "");
+            printf("INT_LIT %d\n", $<i_val>1); 
+            code("ldc %d\n", $<i_val>1);
         }
     | FLOAT_LIT
         {
-            $$ = "float"; 
-            printf("FLOAT_LIT %f\n", $<f_var>1); 
-            code("ldc %f\n", $<f_var>1);
+            $$ = createObject("float", "LIT", convertAnyDataToString(&($<f_val>1), FLOAT_TYPE), -1, "");
+            printf("FLOAT_LIT %f\n", $<f_val>1); 
+            code("ldc %f\n", $<f_val>1);
         }
     | BOOL_LIT 
         {
-            $$ = "bool"; 
-            printf("BOOL_LIT %s\n", $<b_var>1 ? "TRUE" : "FALSE"); 
-            code("ldc %s\n", $<b_var>1 ? "true" : "false");
+            $$ = createObject("bool", "LIT", convertAnyDataToString(&($<b_val>1), BOOL_TYPE), -1, "");
+            printf("BOOL_LIT %s\n", $<b_val>1 ? "TRUE" : "FALSE"); 
+            code("%s\n", $<b_val>1 ? "iconst_1" : "iconst_0");
         }
     | STR_LIT 
         {
-            $$ = "string"; 
-            printf("STR_LIT \"%s\"\n", $<s_var>1);
-            code("ldc \"%s\"\n", $<s_var>1);
+            $$ = createObject("string", "LIT", $<s_val>1, -1, "");
+            printf("STR_LIT \"%s\"\n", $<s_val>1);
+            code("ldc \"%s\"\n", $<s_val>1);
         }
     | ENDL 
         {   
-            $$ = "string";
+            $$ = createObject("string", "LIT", "\\n", -1, "");
             printf("IDENT (name=endl, address=-1)\n");
             code("ldc \"\\n\"\n");
         }

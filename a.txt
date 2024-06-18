@@ -4,103 +4,104 @@
 .method public static main([Ljava/lang/String;)V
 .limit stack 100
 .limit locals 100
-    iload 1
-    ldc 243
-    ldc 15
-    istore 1
-    iload 2
-    iload 1
-    ldc 1
-    istore 1
-    iload 3
-    iload 1
-    istore 1
-    iload 4
-    iload 2
-    ldc 9
-    istore 2
-    iload 5
-    iload 2
-    istore 2
-    iload 1
-    iload 1
-    iadd
-    istore 1
-    iload 2
-    iload 2
-    iadd
-    istore 2
-    iload 3
-    iload 3
-    idiv
-    istore 3
-    iload 1
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/println(I)V
-    ldc " "
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
-    iload 2
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/println(I)V
-    ldc " "
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
-    iload 3
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/println(I)V
-    ldc " "
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
-    iload 4
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/println(I)V
-    ldc " "
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
-    iload 5
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/println(I)V
-    ldc "\n"
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
-    iload 5
-    ldc 100
-    ldc 255
-    istore 5
-    iload 5
-    ldc 2
-    ishl
-    istore 5
-    iload 5
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/println(I)V
-    ldc "\n"
-    getstatic java/lang/System/out Ljava/io/PrintStream;
-    swap
-    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
-    iload 5
+    ldc 3
     ldc 4
-    iushr
-    istore 5
-    iload 5
+    ldc 5
+    ldc 8
+    ineg
+    iadd
+    imul
+    isub
+    ldc 10
+    ldc 7
+    idiv
+    isub
     getstatic java/lang/System/out Ljava/io/PrintStream;
     swap
-    invokevirtual java/io/PrintStream/println(I)V
+    invokevirtual java/io/PrintStream/print(I)V
     ldc "\n"
     getstatic java/lang/System/out Ljava/io/PrintStream;
     swap
     invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    ldc 3
+    ldc 4
+    ldc 5
+    ldc 8
+    ineg
+    iadd
+    imul
+    isub
+    ldc 10
+    ldc 7
+    idiv
+    isub
+    ldc 4
+    ineg
+    ldc 3
+    irem
+    iconst_1
+    iconst_1
+    ixor
+    iconst_0
+    iconst_1
+    ixor
+    iconst_1
+    ixor
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Z)V
+    ldc "\n"
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    ldc 3.000000
+    ldc 4.000000
+    ldc 5.000000
+    ldc 8.000000
+    fneg
+    fadd
+    fmul
+    fsub
+    ldc 10.000000
+    ldc 7.000000
+    fdiv
+    fsub
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(F)V
+    ldc "\n"
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    ldc 3.000000
+    ldc 4.000000
+    ldc 5.000000
+    ldc 8.000000
+    fneg
+    fadd
+    fmul
+    fsub
+    ldc 10.000000
+    ldc 7.000000
+    fdiv
+    fsub
+    ldc 4.000000
+    fneg
+    iconst_1
+    iconst_1
+    ixor
+    iconst_0
+    iconst_1
+    ixor
+    iconst_1
+    ixor
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Z)V
+    ldc "\n"
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    ldc 0
     return
 .end method
