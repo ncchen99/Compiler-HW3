@@ -7,7 +7,7 @@
     int yydebug = 1;
     int array_element_count = 0;
     int is_main = 0;
-    int cmp_con = 0;
+    int ident_addr = 0;
 %}
 
 /* Variable or self-defined structure */
@@ -23,7 +23,7 @@
 }
 
 /* Token without return */
-%token COUT INT FLOAT STRING BOOL TRUE FALSE
+%token COUT 
 %token SHR SHL BAN BOR BNT BXO ADD SUB MUL DIV REM NOT GTR LES GEQ LEQ EQL NEQ LAN LOR
 %token VAL_ASSIGN ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN REM_ASSIGN BAN_ASSIGN BOR_ASSIGN BXO_ASSIGN SHR_ASSIGN SHL_ASSIGN INC_ASSIGN DEC_ASSIGN
 %token IF ELSE FOR WHILE RETURN BREAK CONTINUE ENDL
@@ -163,6 +163,38 @@ AssignmentStmt
         //     printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_var>2, $<s_var>1, $<s_var>3);
         // } OK: int a = (float)(5.5)
         printf("%s\n", $<s_var>2);
+
+        InstructionMapping operations[] = {
+            {"ADD_ASSIGN", "%cadd\n"},
+            {"SUB_ASSIGN", "%csub\n"},
+            {"MUL_ASSIGN", "%cmul\n"},
+            {"DIV_ASSIGN", "%cdiv\n"},
+            {"REM_ASSIGN", "%crem\n"},
+            {"SHR_ASSIGN", "%cushr\n"},
+            {"SHL_ASSIGN", "%cshl\n"},
+            {"BAN_ASSIGN", "%cand\n"},
+            {"BOR_ASSIGN", "%cor\n"},
+            {"BXO_ASSIGN", "%cxor\n"}
+        };
+
+        for (int i = 0; i < sizeof(operations) / sizeof(operations[0]); i++) {
+            if (strcmp($<s_var>2, operations[i].returnVal) == 0) {
+                code(operations[i].inst, $<s_var>1[0]);
+            }
+        }
+
+        InstructionMapping type2store[] = {
+            {"string", "astore %d\n"},
+            {"bool", "istore %d\n"},
+            {"int", "istore %d\n"},
+            {"float", "fstore %d\n"}
+        };
+
+        for (int i = 0; i < sizeof(type2store) / sizeof(type2store[0]); i++) {
+            if (strcmp($<s_var>1, type2store[i].returnVal) == 0) {
+                code(type2store[i].inst, ident_addr);
+            }
+        }
     }
 ;
 
@@ -179,6 +211,7 @@ assign_op
     | BAN_ASSIGN {$$ = "BAN_ASSIGN";}
     | BOR_ASSIGN {$$ = "BOR_ASSIGN";}
     | BXO_ASSIGN {$$ = "BXO_ASSIGN";}
+    // 可以直接 return "%cadd\n" 這種就好
 ;
 
 ExpressionStmt
@@ -186,8 +219,16 @@ ExpressionStmt
 ;
 
 IncDecStmt
-    : Expression INC_ASSIGN    {printf("INC_ASSIGN\n");}
-    | Expression DEC_ASSIGN    {printf("DEC_ASSIGN\n");}
+    : Expression INC_ASSIGN    
+    {
+        printf("INC_ASSIGN\n");
+        code("ldc 1\n%cadd\nistore %d\n", $<s_var>1[0], ident_addr);
+    }
+    | Expression DEC_ASSIGN    
+    {
+        printf("DEC_ASSIGN\n");
+        code("ldc 1\n%csub\nistore %d\n", $<s_var>1[0], ident_addr);
+    }
 ;
 
 
@@ -507,8 +548,28 @@ Operand
 ;
 
 Variable
-    : IDENT { $$ = getSymbolType($<s_var>1, false);} 
-    | IDENT '(' ElementList ')' { $$ = getSymbolType($<s_var>1, true);} 
+    : IDENT 
+    { 
+        $$ = getSymbolType($<s_var>1, false); 
+        Symbol* cur = findSymbol($<s_var>1, false);
+        ident_addr = cur -> addr;
+        if(strcmp(cur -> type, "int") == 0 || strcmp(cur -> type, "bool") == 0){
+            code("iload %d\n", cur -> addr);
+        }
+        else if(strcmp(cur -> type, "float") == 0){
+            code("fload %d\n", cur -> addr);
+        }
+        else if(strcmp(cur -> type, "string") == 0){
+            code("aload %d\n", cur -> addr);
+        }
+    }
+    | IDENT '(' ElementList ')' 
+    { 
+        $$ = getSymbolType($<s_var>1, true);
+        Symbol* cur = findSymbol($<s_var>1, true);
+        ident_addr = cur -> addr;
+        code("invokestatic Main/%s%s\n", cur -> name, cur -> func_sig);
+    } 
     | IDENT '[' Expression ']' { $$ = getSymbolType($<s_var>1, false); }
     | IDENT '[' Expression ']' '[' Expression ']' { $$ = getSymbolType($<s_var>1, false); }
 ;

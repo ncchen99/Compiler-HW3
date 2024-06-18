@@ -42,6 +42,15 @@ char variableNameRecord[101] = "";
 
 Table tables[100];
 
+void code(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    fprintf(yyout, "%*s", scopeLevel << 2, "");
+    vfprintf(yyout, format, args);
+    // fprintf(yyout, "\n");
+    va_end(args);
+}
+
 char* catDoller(const char* s1, const char* s2) {
     char* temp = (char*)calloc(strlen(s1) + strlen(s2) + 2, sizeof(char));
     strcpy(temp, s1);
