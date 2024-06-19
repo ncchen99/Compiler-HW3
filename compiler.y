@@ -7,6 +7,8 @@
     int yydebug = 1;
     int array_element_count = 0;
     int is_main = 0, cmp_con = 0, label_counter = 0, for_label_counter = 0, for_label_array[5] = {1,2,3,4,5};
+    char* func_name_backup = NULL;
+
 
     const InstructionMapping type2store[] = {
         {"string", "astore %d\n"},
@@ -84,23 +86,23 @@ FunctionDeclStmt
             printf("func: %s\n", $<s_val>2);
 
             if(strcmp( $<s_val>2, "main")==0){
-                initJNISignature("main([Ljava/lang/String;)V");
+                initJNISignature("([Ljava/lang/String;)V");
                 code(".method public static main([Ljava/lang/String;)V\n");
                 code(".limit stack 100\n");
                 code(".limit locals 100\n");
                 is_main = 1;
             } else {
                 initJNISignature(NULL);
-                code(".method public static %s", $<s_val>2);
+                func_name_backup = strdup($<s_val>2);
                 is_main = 0;
             }
             createSymbol($<var_type>1, $<s_val>2, VAR_FLAG_DEFAULT, true, false, false);
             pushScope();
         } '(' ParameterList ')'
         {
-            if(is_main == 0){
+            if(!is_main){
                 buildJNISignature(0, false);
-                code("%s\n", getJNISignature());
+                code(".method public static %s%s\n", func_name_backup, getJNISignature());
                 code(".limit stack 70\n");
                 code(".limit locals 70\n");
             } else {
@@ -120,14 +122,14 @@ Parameter
     : VARIABLE_T IDENT 
     { 
         createSymbol($<var_type>1, $<s_val>2, VAR_FLAG_DEFAULT, false, true, false);
-        if(is_main == 0){
+        if(!is_main){
             buildJNISignature($<var_type>1, false);
         }
     }
     | VARIABLE_T IDENT '[' ']' 
     { 
         createSymbol($<var_type>1, $<s_val>2, VAR_FLAG_DEFAULT, false, true, true);
-        if(is_main == 0){
+        if(!is_main){
             buildJNISignature($<var_type>1, true); 
         }
     }
@@ -192,7 +194,7 @@ AssignmentStmt
             {"BXO_ASSIGN", "%cxor\n"}
         };
 
-        if (strcmp($<object_val>1.type, $<object_val>3.type) != 0 ){
+        if (strcmp($<object_val>1.type, $<object_val>3.type) != 0 && !(strcmp($<object_val>1.type, "bool") == 0 || strcmp($<object_val>3.type, "bool") == 0)) {
             code("%c2%c\n", tolower($<object_val>3.type[0]), tolower($<object_val>1.type[0]));
         }
         
@@ -426,7 +428,7 @@ RETURNStmt
         if(sig[strlen(sig)-1] == 'V'){
             code("return\n");
         }else{
-            code("%creturn\n", tolower(sig[strlen(sig)-1]));
+            code("%creturn\n", tolower(sig[strlen(sig)-1]) == 'z' ? 'i' : tolower(sig[strlen(sig)-1]));
         }
     }
     | RETURN
@@ -496,28 +498,28 @@ LogicalANDExpr
 ComparisonExpr
     : AdditionExpr cmp_op AdditionExpr
     {
-        if(strcmp($<object_val>1.type, $<object_val>1.type) != 0){
-            printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_val>2, $<object_val>1.type, $<object_val>1.type);
-        } else {
-            if (strcmp($<object_val>1.type, "int") == 0 || strcmp($<object_val>1.type, "float") == 0){
-                code($<object_val>1.type[0] == 'i' ? "isub\n" : "fcmpl\n");
-                InstructionMapping type2cmp[] = {
-                    {"EQL", "ifeq L_cmp_%d\n"},
-                    {"NEQ", "ifne L_cmp_%d\n"},
-                    {"GTR", "ifgt L_cmp_%d\n"},
-                    {"LES", "iflt L_cmp_%d\n"},
-                    {"GEQ", "ifge L_cmp_%d\n"},
-                    {"LEQ", "ifle L_cmp_%d\n"}
-                };
-                code(getInstruction(type2cmp, 6, $<s_val>2), cmp_con);
-                ++cmp_con;
-                code("iconst_0\n");
-                code("goto L_cmp_%d\n", cmp_con++);
-                code("L_cmp_%d:\n", cmp_con-2);
-                code("iconst_1\n");
-                code("L_cmp_%d:\n", cmp_con-1);
-            }
+        // if(strcmp($<object_val>1.type, $<object_val>1.type) != 0){
+        //     printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_val>2, $<object_val>1.type, $<object_val>1.type);
+        // } else {
+        if (strcmp($<object_val>1.type, "int") == 0 || strcmp($<object_val>1.type, "float") == 0 || strcmp($<object_val>1.type, "bool") == 0 ){
+            code(($<object_val>1.type[0] == 'i' || $<object_val>1.type[0] == 'b') ? "isub\n" : "fcmpl\n");
+            InstructionMapping type2cmp[] = {
+                {"EQL", "ifeq L_cmp_%d\n"},
+                {"NEQ", "ifne L_cmp_%d\n"},
+                {"GTR", "ifgt L_cmp_%d\n"},
+                {"LES", "iflt L_cmp_%d\n"},
+                {"GEQ", "ifge L_cmp_%d\n"},
+                {"LEQ", "ifle L_cmp_%d\n"}
+            };
+            code(getInstruction(type2cmp, 6, $<s_val>2), cmp_con);
+            ++cmp_con;
+            code("iconst_0\n");
+            code("goto L_cmp_%d\n", cmp_con++);
+            code("L_cmp_%d:\n", cmp_con-2);
+            code("iconst_1\n");
+            code("L_cmp_%d:\n", cmp_con-1);
         }
+        // }
         $$ = createObject("bool", $<s_val>2, "0", -1, "");
         printf("%s\n", $<s_val>2);
     }
@@ -532,13 +534,23 @@ AdditionExpr
         } // TODO: auto cast
         $$ = $1;
         printf("%s\n", $<s_val>2);
-        code("%c%s\n", tolower($<s_val>1[0]), $<s_val>2);
+        if (($<object_val>1.type[0] == 'i' && $<object_val>3.type[0] == 'b') || ($<object_val>1.type[0] == 'b' && $<object_val>3.type[0] == 'i')) {
+            code("i%s\n", $<s_val>2);
+            $$ = createObject("int", $<s_val>2, "0", -1, "");
+        } else {
+            code("%c%s\n", tolower($<object_val>1.type[0]), $<s_val>2);
+        }
     }
     | AdditionExpr add_op MultiplicationExpr
     {
         $$ = $1;
         printf("%s\n", $<s_val>2);
-        code("%c%s\n", tolower($<s_val>1[0]), $<s_val>2);
+        if (($<object_val>1.type[0] == 'i' && $<object_val>3.type[0] == 'b') || ($<object_val>1.type[0] == 'b' && $<object_val>3.type[0] == 'i')) {
+            code("i%s\n", $<s_val>2);
+            $$ = createObject("int", $<s_val>2, "0", -1, "");
+        } else {
+            code("%c%s\n", tolower($<object_val>1.type[0]), $<s_val>2);
+        }
     }
     | MultiplicationExpr {$$ = $1;}
 ;
@@ -557,7 +569,7 @@ MultiplicationExpr
         }
         $$ = $1;
         printf("%s\n", $<s_val>2);
-        code("%c%s\n", tolower($<s_val>1[0]), $<s_val>2);
+        code("%c%s\n",  tolower($<s_val>1[0]) == 'b' ? 'i' : tolower($<s_val>1[0]), $<s_val>2);
     }
     | BitOperationExpr {$$ = $1;}
 ;
@@ -662,7 +674,7 @@ Variable
     | IDENT '(' ElementList ')' 
     { 
         Symbol* cur = findSymbol($<s_val>1, true);
-        $$ =  createObject(cur -> type, cur -> name, "0", cur -> addr,"");
+        $$ =  createObject(getReturnTypeByJNISignature(cur -> func_sig), cur -> name, "0", cur -> addr,"");
         code("invokestatic Main/%s%s\n", cur -> name, cur -> func_sig);
     } 
     | IDENT '[' Expression ']' 

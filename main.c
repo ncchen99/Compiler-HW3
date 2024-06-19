@@ -142,7 +142,7 @@ char* typeToString(Type type) {
 
 void initJNISignature(char* defaultSig) {
     funcSig = (char*)calloc(101, sizeof(char));
-    if (funcSig != NULL) {
+    if (defaultSig != NULL) {
         strcpy(funcSig, defaultSig);
     } else {
         funcSig[0] = '(';
@@ -151,6 +151,7 @@ void initJNISignature(char* defaultSig) {
 }
 
 void buildJNISignature(Type type, bool isArr) {
+    printf("JNISignature: %s\n", funcSig);
     // Build JNI signature
     if (isArr) {
         strcat(funcSig, "[");
@@ -163,7 +164,7 @@ void buildJNISignature(Type type, bool isArr) {
             strcat(funcSig, "F");
             break;
         case BOOL_TYPE:
-            strcat(funcSig, "B");
+            strcat(funcSig, "Z");
             break;
         case STR_TYPE:
             strcat(funcSig, "Ljava/lang/String;");
@@ -183,6 +184,7 @@ char* getJNISignature() {
 }
 
 char* getReturnTypeByJNISignature(char* signature) {
+    signature = strdup(signature);
     const char* d = ")";
     char* p = strtok(signature, d);
     p = strtok(NULL, d);
@@ -191,7 +193,7 @@ char* getReturnTypeByJNISignature(char* signature) {
         strcpy(returnType, "int");
     } else if (strcmp(p, "F") == 0) {
         strcpy(returnType, "float");
-    } else if (strcmp(p, "B") == 0) {
+    } else if (strcmp(p, "Z") == 0) {
         strcpy(returnType, "bool");
     } else if (strcmp(p, "Ljava/lang/String;") == 0) {
         strcpy(returnType, "string");
@@ -211,6 +213,7 @@ Symbol* createSymbol(Type type, char* name, int flag, bool is_function, bool is_
         newSymbol->type = strdup("function");
         funcReturnType = type;
         newSymbol->func_sig = funcSig;
+        printf("func_sig: %s, func_sig_addr: %p\n", funcSig, funcSig);
         newSymbol->addr = -1;
     } else {
         type = (type == UNDEFINED_TYPE ? variableTypeRecord : type);
