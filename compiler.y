@@ -6,7 +6,7 @@
 
     int yydebug = 1;
     int array_element_count = 0;
-    int is_main = 0;
+    int is_main = 0, cmp_con = 0, label_counter = 0;
 
     const InstructionMapping type2store[] = {
         {"string", "astore %d\n"},
@@ -52,6 +52,7 @@
 %type <object_val> Expression LogicalORExpr LogicalANDExpr ComparisonExpr AdditionExpr MultiplicationExpr UnaryExpr BitOperationExpr PrimaryExpr Operand Variable  ConversionExpr Declarator DeclaratorList DeclarationStmt
 %type <s_val> cmp_op add_op mul_op unary_op assign_op bit_op
 %type <s_val> PrintableList Printable
+%type <i_val> IFTrue
 
 %left ADD SUB
 %left MUL DIV REM
@@ -190,12 +191,17 @@ AssignmentStmt
             {"BOR_ASSIGN", "%cor\n"},
             {"BXO_ASSIGN", "%cxor\n"}
         };
+
+        if (strcmp($<object_val>1.type, $<object_val>3.type) != 0 ){
+            code("%c2%c\n", tolower($<object_val>3.type[0]), tolower($<object_val>1.type[0]));
+        }
         
         if(strcmp($<s_val>2, "EQL_ASSIGN") != 0){
-            code(getInstruction(operations, 10, $<s_val>2), $<s_val>1[0]);
+            code(getInstruction(operations, 10, $<s_val>2), $<object_val>1.type[0]);
         }
+        
 
-        code(getInstruction(type2store, 4, $<s_val>1), $<object_val>1.addr);
+        code(getInstruction(type2store, 4, $<object_val>1.type), $<object_val>1.addr);
     }
 ;
 
@@ -259,6 +265,10 @@ Declarator
     {
         if(getVarType() == AUTO_TYPE){
             setVarType(getVarTypeByStr($<s_val>3));
+        }
+        // auto cast
+        if (getVarType() != getVarTypeByStr($<object_val>3.type)) {
+            code("%c2%c\n", tolower($<object_val>3.type[0]), tolower(typeToString(getVarType())[0]));
         }
         Symbol* new = createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false,false);
         code(getInstruction(type2store, 4, typeToString(getVarType())), new -> addr);
@@ -333,10 +343,28 @@ Printable
 ;
 
 
+
 IFStmt
-	: IF '(' Expression ')' { printf("IF\n"); } Statement
-	| IFStmt ELSE { printf("ELSE\n"); } Statement
-;
+    : IF '(' Expression ')' IFTrue ELSE IFFalse
+    {
+        code("L_if_end_%d:\n", $<i_val>5);
+    }   
+    | IF '(' Expression ')' IFTrue 
+    {
+        code("L_if_end_%d:\n", $<i_val>5);
+    }
+    ;
+
+IFTrue
+    : { code("ifeq L_else_begin_%d\n", ++label_counter); } Statement {
+        code("goto L_if_end_%d\n", label_counter);
+        code("L_else_begin_%d:\n", label_counter);
+        $$ = label_counter;
+    }
+    ;
+
+IFFalse
+    : Statement
 
 WHILEstmt
     : WHILE { printf("WHILE\n"); } '(' Condition ')' Statement
@@ -414,6 +442,7 @@ LogicalORExpr
         }
         $$ = createObject("bool", "LOR", "0", -1, "");
         printf("LOR\n");
+        code("ior\n");
     }
     | LogicalANDExpr LOR LogicalANDExpr
     {
@@ -422,6 +451,7 @@ LogicalORExpr
         }
         $$ = createObject("bool", "LOR", "0", -1, "");
         printf("LOR\n");
+        code("ior\n");
     }
     | LogicalANDExpr {$$ = $1;}
 ;
@@ -434,6 +464,7 @@ LogicalANDExpr
         }
         $$ = createObject("bool", "LAN", "0", -1, "");
         printf("LAN\n");
+        code("iand\n");
     }
     | ComparisonExpr LAN ComparisonExpr
     {
@@ -442,6 +473,7 @@ LogicalANDExpr
         }
         $$ = createObject("bool", "LAN", "0", -1, "");
         printf("LAN\n");
+        code("iand\n");
     }
     | ComparisonExpr {$$ = $1;}
 ;
@@ -449,8 +481,27 @@ LogicalANDExpr
 ComparisonExpr
     : AdditionExpr cmp_op AdditionExpr
     {
-        if(strcmp($<object_val>1.type, $<object_val>3.type) != 0){
-            printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_val>2, $<s_val>1, $<s_val>3);
+        if(strcmp($<object_val>1.type, $<object_val>1.type) != 0){
+            printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_val>2, $<object_val>1.type, $<object_val>1.type);
+        } else {
+            if (strcmp($<object_val>1.type, "int") == 0 || strcmp($<object_val>1.type, "float") == 0){
+                code($<object_val>1.type[0] == 'i' ? "isub\n" : "fcmpl\n");
+                InstructionMapping type2cmp[] = {
+                    {"EQL", "ifeq L_cmp_%d\n"},
+                    {"NEQ", "ifne L_cmp_%d\n"},
+                    {"GTR", "ifgt L_cmp_%d\n"},
+                    {"LES", "iflt L_cmp_%d\n"},
+                    {"GEQ", "ifge L_cmp_%d\n"},
+                    {"LEQ", "ifle L_cmp_%d\n"}
+                };
+                code(getInstruction(type2cmp, 6, $<s_val>2), cmp_con);
+                ++cmp_con;
+                code("iconst_0\n");
+                code("goto L_cmp_%d\n", cmp_con++);
+                code("L_cmp_%d:\n", cmp_con-2);
+                code("iconst_1\n");
+                code("L_cmp_%d:\n", cmp_con-1);
+            }
         }
         $$ = createObject("bool", $<s_val>2, "0", -1, "");
         printf("%s\n", $<s_val>2);
@@ -617,7 +668,7 @@ ConversionExpr
         printf("Cast to %s\n", typeToString($<var_type>2)); 
         // $$ = typeToString($<var_type>2);
         if ($<var_type>2 != getVarTypeByStr($<object_val>4.type)) {
-            code("%c2%c", tolower($<object_val>4.type[0]), tolower(typeToString($<var_type>2)[0]));
+            code("%c2%c\n", tolower($<object_val>4.type[0]), tolower(typeToString($<var_type>2)[0]));
         }
         $$ = $<object_val>4;
         $$.type = typeToString($<var_type>2);
