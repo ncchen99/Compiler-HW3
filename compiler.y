@@ -6,7 +6,7 @@
 
     int yydebug = 1;
     int array_element_count = 0;
-    int is_main = 0, cmp_con = 0, label_counter = 0;
+    int is_main = 0, cmp_con = 0, label_counter = 0, for_label_counter = 0, for_label_array[5] = {1,2,3,4,5};
 
     const InstructionMapping type2store[] = {
         {"string", "astore %d\n"},
@@ -52,7 +52,7 @@
 %type <object_val> Expression LogicalORExpr LogicalANDExpr ComparisonExpr AdditionExpr MultiplicationExpr UnaryExpr BitOperationExpr PrimaryExpr Operand Variable  ConversionExpr Declarator DeclaratorList DeclarationStmt
 %type <s_val> cmp_op add_op mul_op unary_op assign_op bit_op
 %type <s_val> PrintableList Printable
-%type <i_val> IFTrue
+%type <i_val> IFTrue ForClause
 
 %left ADD SUB
 %left MUL DIV REM
@@ -306,6 +306,9 @@ Block
     : '{' { pushScope(); } StatementList '}' { dumpScope(); }
 ; 
 
+InitializedBlock
+    : '{' StatementList '}' { dumpScope(); }
+
 
 CoutStmt
 	: COUT SHL PrintableList 
@@ -367,7 +370,14 @@ IFFalse
     : Statement
 
 WHILEstmt
-    : WHILE { printf("WHILE\n"); } '(' Condition ')' Statement
+    : WHILE { 
+        printf("WHILE\n"); code("L_while_start_%d:\n", ++label_counter);
+    } '(' Condition ')' {
+        code("ifeq L_while_end_%d\n", label_counter);
+    } Statement {
+        code("goto L_while_start_%d\n", label_counter);
+        code("L_while_end_%d:\n", label_counter);
+    }
 ;
 
 Condition
@@ -380,14 +390,19 @@ Condition
 ;
 
 FORStmt
-    : FOR { printf("FOR\n"); } '(' { pushScope(); } ForClause ')' FuncBlock
-    
+    : FOR { printf("FOR\n"); } '(' { pushScope(); } ForClause ')' InitializedBlock {
+        code("goto L_for_start_%d\n", $<i_val>5);
+        code("L_for_end_%d:\n", $<i_val>5);
+    } 
 ;
 
 ForClause
-    : InitStmt ';' Condition ';' PostStmt
+    : InitStmt ';' { code("L_for_start_%d:\n", ++label_counter); } Condition ';' {code("ifeq L_for_end_%d\n", label_counter);} PostStmt {
+        $$ = label_counter; 
+    }
     | DeclarationStmt ':' Expression 
     {
+        $$ = label_counter;
         updateSymbolType(NULL, getVarTypeByStr($<s_val>3));
     }
     
