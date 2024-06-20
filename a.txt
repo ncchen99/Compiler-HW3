@@ -1,0 +1,16 @@
+    .source Main.j
+    .class public Main
+    .super java/lang/Object
+    .method public static mod(II)I
+    .limit stack 70
+    .limit locals 70
+    iload 0
+    ldc 0
+    isub
+    iflt L_cmp_0
+    iconst_0
+    goto L_cmp_1
+    L_cmp_0:
+    iconst_1
+    L_cmp_1:
+    ifeq L_else_begin_1

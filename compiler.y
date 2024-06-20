@@ -6,7 +6,7 @@
 
     int yydebug = 1;
     int array_element_count = 0;
-    int is_main = 0, cmp_con = 0, label_counter = 0, for_label_counter = 0, for_label_array[5] = {1,2,3,4,5};
+    int is_main = 0, cmp_con = 0, for_label_counter = 0, if_label_counter = 0, while_label_counter = 0;
     char* func_name_backup = NULL;
 
 
@@ -361,10 +361,10 @@ IFStmt
     ;
 
 IFTrue
-    : { code("ifeq L_else_begin_%d\n", ++label_counter); } Statement {
-        code("goto L_if_end_%d\n", label_counter);
-        code("L_else_begin_%d:\n", label_counter);
-        $$ = label_counter;
+    : { code("ifeq L_else_begin_%d\n", ++if_label_counter); } Statement {
+        code("goto L_if_end_%d\n", if_label_counter);
+        code("L_else_begin_%d:\n", if_label_counter);
+        $$ = if_label_counter;
     }
     ;
 
@@ -373,12 +373,12 @@ IFFalse
 
 WHILEstmt
     : WHILE { 
-        printf("WHILE\n"); code("L_while_start_%d:\n", ++label_counter);
+        printf("WHILE\n"); code("L_while_start_%d:\n", ++while_label_counter);
     } '(' Condition ')' {
-        code("ifeq L_while_end_%d\n", label_counter);
+        code("ifeq L_while_end_%d\n", while_label_counter);
     } Statement {
-        code("goto L_while_start_%d\n", label_counter);
-        code("L_while_end_%d:\n", label_counter);
+        code("goto L_while_start_%d\n", while_label_counter);
+        code("L_while_end_%d:\n", while_label_counter);
     }
 ;
 
@@ -399,12 +399,12 @@ FORStmt
 ;
 
 ForClause
-    : InitStmt ';' { code("L_for_start_%d:\n", ++label_counter); } Condition ';' {code("ifeq L_for_end_%d\n", label_counter);} PostStmt {
-        $$ = label_counter; 
+    : InitStmt ';' { code("L_for_start_%d:\n", ++for_label_counter); } Condition ';' {code("ifeq L_for_end_%d\n", for_label_counter);} PostStmt {
+        $$ = for_label_counter; 
     }
     | DeclarationStmt ':' Expression 
     {
-        $$ = label_counter;
+        $$ = for_label_counter;
         updateSymbolType(NULL, getVarTypeByStr($<s_val>3));
     }
     
@@ -416,6 +416,7 @@ PostStmt : SimpleStmt
 BREAKStmt
     : BREAK
     {
+        code("goto L_while_end_%d\n", while_label_counter);
         printf("BREAK\n");
     }
 ;   
