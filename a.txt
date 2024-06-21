@@ -1,16 +1,116 @@
     .source Main.j
     .class public Main
     .super java/lang/Object
-    .method public static mod(II)I
-    .limit stack 70
-    .limit locals 70
-    iload 0
+.method public static main([Ljava/lang/String;)V
+.limit stack 100
+.limit locals 100
+    ldc 5
+    newarray int
+    dup
     ldc 0
-    isub
-    iflt L_cmp_0
-    iconst_0
-    goto L_cmp_1
-    L_cmp_0:
-    iconst_1
-    L_cmp_1:
-    ifeq L_else_begin_1
+    ldc 10
+    iastore
+    dup
+    ldc 1
+    ldc 20
+    iastore
+    dup
+    ldc 2
+    ldc 30
+    iastore
+    dup
+    ldc 3
+    ldc 40
+    iastore
+    dup
+    ldc 4
+    ldc 50
+    iastore
+    astore 1
+    aload 1
+    ldc 0
+    iaload
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(I)V
+    ldc " "
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    aload 1
+    ldc 1
+    iaload
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(I)V
+    ldc " "
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    aload 1
+    ldc 2
+    iaload
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(I)V
+    ldc " "
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    aload 1
+    ldc 3
+    iaload
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(I)V
+    ldc " "
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    aload 1
+    ldc 4
+    iaload
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(I)V
+    ldc "\n"
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    ldc 1001
+    newarray int
+    astore 2
+    aload 2
+    ldc 3
+    iaload
+    ldc 9
+    swap
+    iastore
+    aload 2
+    ldc 1000
+    iaload
+    ldc 1000
+    swap
+    iastore
+    aload 2
+    ldc 3
+    iaload
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(I)V
+    ldc " "
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    aload 2
+    ldc 1000
+    iaload
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(I)V
+    ldc "\n"
+    getstatic java/lang/System/out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream/print(Ljava/lang/String;)V
+    return
+.end method

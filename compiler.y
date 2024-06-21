@@ -6,7 +6,7 @@
 
     int yydebug = 1;
     int array_element_count = 0;
-    int is_main = 0, cmp_con = 0, for_label_counter = 0, if_label_counter = 0, while_label_counter = 0;
+    int is_main = 0, cmp_con = 0, for_label_counter = 0, if_label_counter = 0, while_label_counter = 0, need_load = 1, is_array = false;
     char* func_name_backup = NULL;
 
 
@@ -14,7 +14,9 @@
         {"string", "astore %d\n"},
         {"bool", "istore %d\n"},
         {"int", "istore %d\n"},
-        {"float", "fstore %d\n"}
+        {"float", "fstore %d\n"},
+        {"int[]", "iastore\n"},
+        {"int[][]", "iastore\n"}
     };
     const InstructionMapping type2load[] = {
         {"string", "aload %d\n"},
@@ -51,9 +53,9 @@
 
 /* Nonterminal with return, which need to sepcify type */
 %type <object_val> Literal 
-%type <object_val> Expression LogicalORExpr LogicalANDExpr ComparisonExpr AdditionExpr MultiplicationExpr UnaryExpr BitOperationExpr PrimaryExpr Operand Variable  ConversionExpr Declarator DeclaratorList DeclarationStmt
+%type <object_val> Expression LogicalORExpr LogicalANDExpr ComparisonExpr AdditionExpr MultiplicationExpr UnaryExpr BitOperationExpr PrimaryExpr Operand Variable ConversionExpr Declarator DeclaratorList DeclarationStmt Element ArrayElement
 %type <s_val> cmp_op add_op mul_op unary_op assign_op bit_op
-%type <s_val> PrintableList Printable
+%type <s_val> PrintableList Printable ArrayIDENT
 %type <i_val> IFTrue ForClause
 
 %left ADD SUB
@@ -174,13 +176,12 @@ SimpleStmt
 ;
 
 AssignmentStmt
-    : Expression assign_op Expression 
+    : Expression assign_op Expression // 
     {
         // if(strcmp($<s_val>1, $<s_val>3) != 0 ) {
         //     printf("error:%d: invalid operation: %s (mismatched types %s and %s)\n", yylineno, $<s_val>2, $<s_val>1, $<s_val>3);
         // } OK: int a = (float)(5.5)
         printf("%s\n", $<s_val>2);
-
         const InstructionMapping operations[] = {
             {"ADD_ASSIGN", "%cadd\n"},
             {"SUB_ASSIGN", "%csub\n"},
@@ -194,16 +195,19 @@ AssignmentStmt
             {"BXO_ASSIGN", "%cxor\n"}
         };
 
-        if (strcmp($<object_val>1.type, $<object_val>3.type) != 0 && !(strcmp($<object_val>1.type, "bool") == 0 || strcmp($<object_val>3.type, "bool") == 0)) {
+        if ($<object_val>1.type[0] != $<object_val>3.type[0] && !(strcmp($<object_val>1.type, "bool") == 0 || strcmp($<object_val>3.type, "bool") == 0)) {
             code("%c2%c\n", tolower($<object_val>3.type[0]), tolower($<object_val>1.type[0]));
         }
         
         if(strcmp($<s_val>2, "EQL_ASSIGN") != 0){
             code(getInstruction(operations, 10, $<s_val>2), $<object_val>1.type[0]);
         }
-        
-
-        code(getInstruction(type2store, 4, $<object_val>1.type), $<object_val>1.addr);
+        if(is_array) {
+            code("iastore\n");
+            is_array = false;
+        }else{
+            code(getInstruction(type2store, 4, $<object_val>1.type), $<object_val>1.addr);
+        }
     }
 ;
 
@@ -277,19 +281,31 @@ Declarator
     }
 	| IDENT '[' Expression ']' 
     {
-		createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, true);
+        Symbol* new = createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, true);
+        code("newarray int\n"); // 硬寫 int  
+        code("astore %d\n", new -> addr);
 	}
 	| IDENT '[' Expression ']' '[' Expression ']' 
     {
 		// printf("create array: %d\n", 0); 
-		createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, true);
+		Symbol* new = createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, true);
+        code("multianewarray [[I 2\n");
+        code("astore %d\n", new -> addr);
 	}
-	| IDENT '[' Expression ']' VAL_ASSIGN { array_element_count = 0; } '{' ElementList '}' 
+	| IDENT '[' Expression ']' VAL_ASSIGN { array_element_count = 0; code("newarray int\n"); } '{' ArrayList '}' 
     {
 		printf("create array: %d\n", array_element_count);
-		createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, true);
+		Symbol* new = createSymbol(0, $<s_val>1, VAR_FLAG_DEFAULT, false, false, true);
+        code("astore %d\n", new -> addr);
 	}
 ;
+
+ArrayList
+    : ArrayElement
+    | ArrayList ',' ArrayElement 
+    |
+;
+
 
 ElementList
     : Element
@@ -297,10 +313,19 @@ ElementList
     |
 ;
 
-Element
-    : Expression 
+ArrayElement
+    : {
+        code("dup\n");
+        code("ldc %d\n", array_element_count++); 
+    } 
+        Expression
     {
-        array_element_count += 1;
+        code("iastore\n");
+    }
+
+Element
+    : Expression {
+        $$ = $1;
     }
 ;
 
@@ -678,17 +703,28 @@ Variable
         $$ =  createObject(getReturnTypeByJNISignature(cur -> func_sig), cur -> name, "0", cur -> addr,"");
         code("invokestatic Main/%s%s\n", cur -> name, cur -> func_sig);
     } 
-    | IDENT '[' Expression ']' 
+    | ArrayIDENT '[' Expression ']' 
     {
+        is_array = 1;
         Symbol* cur = findSymbol($<s_val>1, false);
-        $$ = createObject(cur -> type, cur -> name, "0", cur -> addr,"");
+        $$ = createObject(cur->type, cur -> name, "0", cur -> addr,"");
+        code("iaload\n");
     }
-    | IDENT '[' Expression ']' '[' Expression ']' 
+    | ArrayIDENT '[' Expression ']' { code("aaload\n"); } '[' Expression ']' 
     {
         Symbol* cur = findSymbol($<s_val>1, false);
-        $$ = createObject(cur -> type, cur -> name, "0", cur -> addr,""); 
+        $$ = createObject(cur->type, cur -> name, "0", cur -> addr,""); 
+        code("iaload\n");
     }
 ;
+
+ArrayIDENT 
+    : IDENT 
+    { 
+        Symbol* cur = findSymbol($<s_val>1, false); 
+        code("aload %d\n", cur -> addr); 
+        $$ = $<s_val>1;
+    }
 
 ConversionExpr 
     : '(' VARIABLE_T ')' Operand 
